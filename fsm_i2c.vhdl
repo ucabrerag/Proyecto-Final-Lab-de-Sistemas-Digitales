@@ -19,3 +19,115 @@ architecture logic_flow of fsm_i2c is
     signal data_index: natural range 0 to max_length -1;
     signal timer: natural range 0 to max_delay;
     signal ack_bits: std_logic_vector(2 downto 0);
+
+begin
+    process(clk2, rst)
+     begin
+      if (rst='1') then
+        present_state<= st_idle;
+        data_index <= 0;
+      elsif (clk2'event and clk2='1') then
+       if(data_index=timer-1) then
+        present_state<=next_state;
+        data_index <=0;
+       else
+         data_index <= data_index +1;
+       end if;
+     end if;
+    end process;
+
+    process(clk2, rst)
+     begin
+      if (rst='1') then
+        present_state<= st_idle;
+        data_index <= 0;
+      elsif (clk2'event and clk2='1') then
+       if(data_index=timer-1) then
+        present_state<=next_state;
+        data_index <=0;
+       else
+        data_index <= data_index +1;
+       end if;
+  --    elsif (clk'event and clk='0') then
+       end if;
+
+       if(present_state=st2_ack1) then
+        ack_bits(0)<=sda;
+        elsif( present_state=st4_ack2) then
+            ack_bits(1)<=sda;
+        elsif( present_state= st6_ack3) then
+            ack_bits(2)<=sda;
+        end if;
+
+    end process;
+
+
+
+
+-----------------------------------------------------
+
+
+--- Circuit outputs and next state values 
+    process(clk, present_state, wr_enable)
+     begin
+      case present_state is
+       when st_idle =>
+        sclk<='1';
+        sda<='1';
+        timer<=1;
+       if(wr_enable ='1') then
+        next_state<= st0_start;
+       else
+        next_state<= st_idle;
+       end if;
+
+       when st0_start =>
+        sclk <='1';
+        sda<=dclk;
+        timer<=1;
+        next_state<= st1_txSlaveAddress;
+        
+       when st1_txSlaveAddress =>
+        sclk<=clk;
+        sda<= slave_address (7- data_index);
+        timer<=8;
+        next_state<= st2_ack1;
+
+       when st2_ack1=>
+        sclk<=clk;
+        sda<='Z';
+        timer<=1;
+        next_state<= st3_txRegAddress; 
+
+       when st3_txRegAddress =>
+        sclk<=clk;
+        sda<= register_address (7- data_index);
+        timer<=8;
+        next_state<= st4_ack2;
+
+       when st4_ack2=>
+        sclk<=clk;
+        sda<= 'Z';
+        timer<=1;
+        next_state<= st5_txData;
+
+       when st5_txData =>
+        sclk<=clk;
+        sda<= data (7- data_index);
+        timer<=8;
+        next_state<= st6_ack3;
+
+       when st6_ack3=>
+        sclk<=clk;
+        sda<= 'Z';
+        timer<=1;
+        next_state<= st7_stop;
+
+       when st7_stop =>
+        sclk<='1';
+        sda<= not dclk;
+        timer<=1;
+        next_state<= st_idle;
+     end case;
+    end process;
+    end logic_flow;
